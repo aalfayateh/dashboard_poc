@@ -158,9 +158,10 @@ def main():
         start_date = st.date_input(f"Start Date (available from {df['date'].min()})", df['date'].min())
         end_date = st.date_input(f"End Date (available until {df['date'].max()})", df['date'].max())
         
+        # Input for the file path to save the plot (entered before generating the plot)
+        save_path = st.text_input("Enter the file path to save the plot (optional)", "")
+        
         if st.button("Generate Plot"):
-            # Text input to save the plot as HTML (optional)
-            save_path = st.text_input("Enter the file path to save the plot (optional)", "")
             update_plot(start_date, end_date, save_path)
 
 # Run the Streamlit app
