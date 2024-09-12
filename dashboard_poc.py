@@ -99,7 +99,7 @@ def update_plot(start_date, end_date):
     fig.update_layout(
         title={
             'text': f'Report of Average Speed and Entries from {start_date} to {end_date}',
-            'font': {'size': 24, 'family': 'Arial', 'color': '#004d99'}
+            'font': {'size': 18, 'family': 'Arial', 'color': '#004d99'}
         },
         xaxis=dict(
             title='Hour',
@@ -141,7 +141,7 @@ def update_plot(start_date, end_date):
 
 # Streamlit app main function
 def main():
-    st.title("Traffic Data Analysis")
+    st.title("Traffic Dashboard General")
 
     # File upload section
     uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
@@ -163,10 +163,13 @@ def main():
                 pio.write_html(fig, buf)
                 html_bytes = buf.getvalue().encode()
                 
+                # Generate the file name
+                file_name = f"Dashboard_general_{start_date}_{end_date}_plot.html"
+                
                 st.download_button(
                     label="Download Plot as HTML",
                     data=html_bytes,
-                    file_name="plot.html",
+                    file_name=file_name,
                     mime='text/html'
                 )
 
