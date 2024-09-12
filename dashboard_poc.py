@@ -4,6 +4,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 import streamlit as st
 import plotly.io as pio
+import io
 
 # Initialize global variable for the DataFrame
 df = pd.DataFrame()
@@ -33,17 +34,17 @@ def load_file(uploaded_file):
         return False
 
 # Function to update the plot
-def update_plot(start_date, end_date, save_path=None):
+def update_plot(start_date, end_date):
     if df.empty:
         st.error("No data available. Please upload a CSV file.")
-        return
+        return None
 
     # Filter data based on the selected date range
     filtered_df = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
     
     if filtered_df.empty:
         st.warning("No data available for the selected date range.")
-        return
+        return None
     
     # Group by 'carretera' and 'hour', then calculate the mean velocity
     grouped_df = filtered_df.groupby(['carretera', 'hour'])['velocidad_promedio'].mean().reset_index()
@@ -135,16 +136,8 @@ def update_plot(start_date, end_date, save_path=None):
         template='plotly_white'
     )
     
-    # Display the plot in the Streamlit app
-    st.plotly_chart(fig)
-
-    # Optionally save the plot
-    if save_path:
-        try:
-            pio.write_html(fig, save_path)
-            st.success(f"Plot saved to {save_path}")
-        except Exception as e:
-            st.error(f"Error saving the plot: {e}")
+    # Return the figure
+    return fig
 
 # Streamlit app main function
 def main():
@@ -158,11 +151,24 @@ def main():
         start_date = st.date_input(f"Start Date (available from {df['date'].min()})", df['date'].min())
         end_date = st.date_input(f"End Date (available until {df['date'].max()})", df['date'].max())
         
-        # Input for the file path to save the plot (entered before generating the plot)
-        save_path = st.text_input("Enter the file path to save the plot (optional)", "")
-        
         if st.button("Generate Plot"):
-            update_plot(start_date, end_date, save_path)
+            fig = update_plot(start_date, end_date)
+            
+            if fig:
+                # Display the plot
+                st.plotly_chart(fig)
+                
+                # Provide an option to download the plot as HTML
+                buf = io.StringIO()
+                pio.write_html(fig, buf)
+                html_bytes = buf.getvalue().encode()
+                
+                st.download_button(
+                    label="Download Plot as HTML",
+                    data=html_bytes,
+                    file_name="plot.html",
+                    mime='text/html'
+                )
 
 # Run the Streamlit app
 if __name__ == "__main__":
