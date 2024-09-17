@@ -36,9 +36,6 @@ def get_color(vehicle_count):
 # Streamlit app
 st.title("Density Traffic Map Generator")
 
-# Step 1: Upload CSV file
-uploaded_file = st.file_uploader("Upload CSV file", type="csv")
-
 # Initialize session state variables if not already set
 if 'df' not in st.session_state:
     st.session_state.df = None
@@ -48,8 +45,14 @@ if 'html_data' not in st.session_state:
     st.session_state.html_data = None
 if 'map_object' not in st.session_state:
     st.session_state.map_object = None
+if 'selected_date' not in st.session_state:
+    st.session_state.selected_date = None
+if 'road_type' not in st.session_state:
+    st.session_state.road_type = None
 
 # Load the DataFrame if a file is uploaded
+uploaded_file = st.file_uploader("Upload CSV file", type="csv")
+
 if uploaded_file is not None:
     st.session_state.df = load_dataframe(uploaded_file)
     st.success(f"CSV file loaded with {len(st.session_state.df)} entries.")
@@ -60,42 +63,48 @@ if uploaded_file is not None:
     road_types = st.session_state.df['nombre'].unique()
 
     st.write(f"Available dates: {min_date} to {max_date}")
-    
-    selected_date = st.date_input("Select date", min_value=min_date, max_value=max_date)
-    road_type = st.selectbox("Select road type", road_types)
 
-    if st.button("Generate Map"):
-        # Step 3: Filter data based on selection
-        filtered_df = st.session_state.df[(st.session_state.df['fecha'] == str(selected_date)) & (st.session_state.df['nombre'] == road_type)]
+    # Input widgets for selecting date and road type
+    st.session_state.selected_date = st.date_input("Select date", min_value=min_date, max_value=max_date, key='date_input')
+    st.session_state.road_type = st.selectbox("Select road type", road_types, key='road_select')
 
-        if filtered_df.empty:
-            st.warning("No data found for the selected date and road type.")
-        else:
-            # Step 4: Generate the map
-            m = folium.Map(location=[40.4168, -3.7038], zoom_start=6, tiles='CartoDB Positron')
+    # Only show the generate map button if file is loaded
+    if st.session_state.df is not None:
+        if st.button("Generate Map"):
+            # Step 3: Filter data based on selection
+            filtered_df = st.session_state.df[
+                (st.session_state.df['fecha'] == str(st.session_state.selected_date)) & 
+                (st.session_state.df['nombre'] == st.session_state.road_type)
+            ]
 
-            for _, road in filtered_df.iterrows():
-                vehicle_count = road.get('vehicle_count', 0)
-                color = get_color(vehicle_count)
-                coords = extract_2d_coords(road.geometry)
-                
-                if road.geometry.geom_type == 'MultiLineString':
-                    coords = [coord for sublist in coords for coord in sublist]
+            if filtered_df.empty:
+                st.warning("No data found for the selected date and road type.")
+            else:
+                # Step 4: Generate the map
+                m = folium.Map(location=[40.4168, -3.7038], zoom_start=6, tiles='CartoDB Positron')
 
-                folium.PolyLine(
-                    coords,
-                    color=color,
-                    weight=5
-                ).add_to(m)
+                for _, road in filtered_df.iterrows():
+                    vehicle_count = road.get('vehicle_count', 0)
+                    color = get_color(vehicle_count)
+                    coords = extract_2d_coords(road.geometry)
+                    
+                    if road.geometry.geom_type == 'MultiLineString':
+                        coords = [coord for sublist in coords for coord in sublist]
 
-            # Save map to session state
-            st.session_state.map_object = m
+                    folium.PolyLine(
+                        coords,
+                        color=color,
+                        weight=5
+                    ).add_to(m)
 
-            # Save map HTML to session state for persistence
-            html_data = BytesIO()
-            m.save(html_data, close_file=False)
-            st.session_state.html_data = html_data
-            st.session_state.map_generated = True
+                # Save map to session state
+                st.session_state.map_object = m
+
+                # Save map HTML to session state for persistence
+                html_data = BytesIO()
+                m.save(html_data, close_file=False)
+                st.session_state.html_data = html_data
+                st.session_state.map_generated = True
 
     # Check if the map was generated before and persist it
     if st.session_state.map_generated and st.session_state.map_object is not None:
@@ -106,6 +115,6 @@ if uploaded_file is not None:
         st.download_button(
             label="Download Density Heatmap as HTML",
             data=st.session_state.html_data.getvalue(),
-            file_name=f"traffic_map_{selected_date}_{road_type}.html",
+            file_name=f"traffic_map_{st.session_state.selected_date}_{st.session_state.road_type}.html",
             mime='text/html'
         )
