@@ -1,3 +1,6 @@
 streamlit
 pandas
 plotly
+shapely
+folium
+streamlit-folium
