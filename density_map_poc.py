@@ -58,41 +58,62 @@ def generate_map(df, selected_date, road_type):
 # Streamlit app
 st.title("Density Traffic Map Generator")
 
+# Initialize session state variables
+if 'df' not in st.session_state:
+    st.session_state.df = None
+if 'map_generated' not in st.session_state:
+    st.session_state.map_generated = False
+if 'html_data' not in st.session_state:
+    st.session_state.html_data = None
+if 'map_object' not in st.session_state:
+    st.session_state.map_object = None
+if 'selected_date' not in st.session_state:
+    st.session_state.selected_date = None
+if 'road_type' not in st.session_state:
+    st.session_state.road_type = None
+
 # Step 1: Upload CSV file
 uploaded_file = st.file_uploader("Upload CSV file", type="csv")
 
 if uploaded_file is not None:
-    # Step 2: Load the DataFrame
-    df = load_dataframe(uploaded_file)
-    st.success(f"CSV file loaded with {len(df)} entries.")
+    st.session_state.df = load_dataframe(uploaded_file)
+    st.success(f"CSV file loaded with {len(st.session_state.df)} entries.")
 
-    # Step 3: Select date and road type
-    min_date = pd.to_datetime(df['fecha'].min()).date()
-    max_date = pd.to_datetime(df['fecha'].max()).date()
-    road_types = df['nombre'].unique()
+# Ensure the selection widgets are only displayed after a file is loaded
+if st.session_state.df is not None:
+    # Step 2: Select date and road type
+    min_date = pd.to_datetime(st.session_state.df['fecha'].min()).date()
+    max_date = pd.to_datetime(st.session_state.df['fecha'].max()).date()
+    road_types = st.session_state.df['nombre'].unique()
 
     st.write(f"Available dates: {min_date} to {max_date}")
 
-    # Input widgets for selecting date and road type
     selected_date = st.date_input("Select date", min_value=min_date, max_value=max_date, key='date_input')
     road_type = st.selectbox("Select road type", road_types, key='road_select')
 
-    # Add a button to generate the map
+    # Save selections to session state
+    st.session_state.selected_date = selected_date
+    st.session_state.road_type = road_type
+
+    # Enable button only if both date and road type are selected
     generate_button_enabled = selected_date and road_type
     if st.button("Generate Map", disabled=not generate_button_enabled):
-        # Step 4: Generate the map
-        map_object, html_data = generate_map(df, selected_date, road_type)
+        st.session_state.map_object, st.session_state.html_data = generate_map(
+            st.session_state.df,
+            st.session_state.selected_date,
+            st.session_state.road_type
+        )
+        st.session_state.map_generated = st.session_state.html_data is not None
 
-        if map_object is None:
-            st.warning(html_data)  # Display warning if no data found
-        else:
-            # Step 5: Display the map
-            st_folium(map_object, width=700, height=500)
+# Check if the map was generated before and persist it
+if st.session_state.map_generated and st.session_state.map_object is not None:
+    # Display the map stored in session state
+    st_folium(st.session_state.map_object, width=700, height=500)
 
-            # Step 6: Export the map to HTML and allow downloading
-            st.download_button(
-                label="Download Density Heatmap as HTML",
-                data=html_data.getvalue(),
-                file_name=f"traffic_map_{selected_date}_{road_type}.html",
-                mime='text/html'
-            )
+    # Allow the user to download the map after it is generated
+    st.download_button(
+        label="Download Density Heatmap as HTML",
+        data=st.session_state.html_data.getvalue(),
+        file_name=f"traffic_map_{st.session_state.selected_date}_{st.session_state.road_type}.html",
+        mime='text/html'
+    )
