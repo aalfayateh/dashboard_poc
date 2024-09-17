@@ -33,10 +33,43 @@ def get_color(vehicle_count):
     else:
         return 'red'
 
+# Function to generate the map
+def generate_map(df, selected_date, road_type):
+    filtered_df = df[
+        (df['fecha'] == str(selected_date)) & 
+        (df['nombre'] == road_type)
+    ]
+
+    if filtered_df.empty:
+        return None, "No data found for the selected date and road type."
+
+    # Create the map
+    m = folium.Map(location=[40.4168, -3.7038], zoom_start=6, tiles='CartoDB Positron')
+
+    for _, road in filtered_df.iterrows():
+        vehicle_count = road.get('vehicle_count', 0)
+        color = get_color(vehicle_count)
+        coords = extract_2d_coords(road.geometry)
+        
+        if road.geometry.geom_type == 'MultiLineString':
+            coords = [coord for sublist in coords for coord in sublist]
+
+        folium.PolyLine(
+            coords,
+            color=color,
+            weight=5
+        ).add_to(m)
+
+    # Save map HTML to BytesIO for download
+    html_data = BytesIO()
+    m.save(html_data, close_file=False)
+    
+    return m, html_data
+
 # Streamlit app
 st.title("Density Traffic Map Generator")
 
-# Initialize session state variables if not already set
+# Initialize session state variables
 if 'df' not in st.session_state:
     st.session_state.df = None
 if 'map_generated' not in st.session_state:
@@ -76,40 +109,12 @@ if st.session_state.df is not None:
 
     # Only show the generate map button if file is loaded
     if st.button("Generate Map"):
-        # Step 3: Filter data based on selection
-        filtered_df = st.session_state.df[
-            (st.session_state.df['fecha'] == str(st.session_state.selected_date)) & 
-            (st.session_state.df['nombre'] == st.session_state.road_type)
-        ]
-
-        if filtered_df.empty:
-            st.warning("No data found for the selected date and road type.")
-        else:
-            # Step 4: Generate the map
-            m = folium.Map(location=[40.4168, -3.7038], zoom_start=6, tiles='CartoDB Positron')
-
-            for _, road in filtered_df.iterrows():
-                vehicle_count = road.get('vehicle_count', 0)
-                color = get_color(vehicle_count)
-                coords = extract_2d_coords(road.geometry)
-                
-                if road.geometry.geom_type == 'MultiLineString':
-                    coords = [coord for sublist in coords for coord in sublist]
-
-                folium.PolyLine(
-                    coords,
-                    color=color,
-                    weight=5
-                ).add_to(m)
-
-            # Save map to session state
-            st.session_state.map_object = m
-
-            # Save map HTML to session state for persistence
-            html_data = BytesIO()
-            m.save(html_data, close_file=False)
-            st.session_state.html_data = html_data
-            st.session_state.map_generated = True
+        st.session_state.map_object, st.session_state.html_data = generate_map(
+            st.session_state.df,
+            st.session_state.selected_date,
+            st.session_state.road_type
+        )
+        st.session_state.map_generated = st.session_state.html_data is not None
 
 # Check if the map was generated before and persist it
 if st.session_state.map_generated and st.session_state.map_object is not None:
