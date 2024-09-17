@@ -80,7 +80,7 @@ uploaded_file = st.file_uploader("Upload CSV file", type="csv")
 if uploaded_file is not None:
     st.session_state.df = load_dataframe(uploaded_file)
     st.success(f"CSV file loaded with {len(st.session_state.df)} entries.")
-    st.session_state.button_clicked = False  # Reset button state
+    st.session_state.button_clicked = False  # Reset button state when new file is uploaded
 
 # Only display widgets if data is loaded
 if st.session_state.df is not None:
@@ -99,21 +99,22 @@ if st.session_state.df is not None:
     st.session_state.selected_date = selected_date
     st.session_state.road_type = road_type
 
-    # Only enable the button if both date and road type are selected
+    # Enable button only if both date and road type are selected
     generate_button_enabled = selected_date and road_type
     if st.button("Generate Map", disabled=not generate_button_enabled):
         st.session_state.button_clicked = True
 
-        # Generate the map
-        st.session_state.map_object, st.session_state.html_data = generate_map(
-            st.session_state.df,
-            st.session_state.selected_date,
-            st.session_state.road_type
-        )
-        st.session_state.map_generated = st.session_state.html_data is not None
+        # Generate the map only if the button is clicked
+        if st.session_state.button_clicked:
+            st.session_state.map_object, st.session_state.html_data = generate_map(
+                st.session_state.df,
+                st.session_state.selected_date,
+                st.session_state.road_type
+            )
+            st.session_state.map_generated = st.session_state.html_data is not None
 
-# Check if the map was generated and button was clicked
-if st.session_state.map_generated and st.session_state.map_object is not None and st.session_state.button_clicked:
+# Display the map if it was generated
+if st.session_state.map_generated and st.session_state.map_object is not None:
     # Display the map stored in session state
     st_folium(st.session_state.map_object, width=700, height=500)
 
