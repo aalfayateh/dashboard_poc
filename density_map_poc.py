@@ -39,36 +39,39 @@ st.title("Density Traffic Map Generator")
 # Step 1: Upload CSV file
 uploaded_file = st.file_uploader("Upload CSV file", type="csv")
 
-if uploaded_file is not None:
-    # Step 2: Load the DataFrame
-    df = load_dataframe(uploaded_file)
-    st.success(f"CSV file loaded with {len(df)} entries.")
+# Initialize session state variables if not already set
+if 'df' not in st.session_state:
+    st.session_state.df = None
+if 'map_generated' not in st.session_state:
+    st.session_state.map_generated = False
+if 'html_data' not in st.session_state:
+    st.session_state.html_data = None
+if 'map_object' not in st.session_state:
+    st.session_state.map_object = None
 
-    # Step 3: Select date and road type
-    min_date = pd.to_datetime(df['fecha'].min()).date()
-    max_date = pd.to_datetime(df['fecha'].max()).date()
-    road_types = df['nombre'].unique()
+# Load the DataFrame if a file is uploaded
+if uploaded_file is not None:
+    st.session_state.df = load_dataframe(uploaded_file)
+    st.success(f"CSV file loaded with {len(st.session_state.df)} entries.")
+    
+    # Step 2: Select date and road type
+    min_date = pd.to_datetime(st.session_state.df['fecha'].min()).date()
+    max_date = pd.to_datetime(st.session_state.df['fecha'].max()).date()
+    road_types = st.session_state.df['nombre'].unique()
 
     st.write(f"Available dates: {min_date} to {max_date}")
     
     selected_date = st.date_input("Select date", min_value=min_date, max_value=max_date)
     road_type = st.selectbox("Select road type", road_types)
 
-    # Ensure that session state is used to persist the map generation state
-    if "map_generated" not in st.session_state:
-        st.session_state["map_generated"] = False
-        st.session_state["html_data"] = None
-        st.session_state["map_object"] = None  # Store map object here
-
-    # Only generate the map when both a date and road type are selected and the button is clicked
     if st.button("Generate Map"):
-        # Step 4: Filter data based on selection
-        filtered_df = df[(df['fecha'] == str(selected_date)) & (df['nombre'] == road_type)]
+        # Step 3: Filter data based on selection
+        filtered_df = st.session_state.df[(st.session_state.df['fecha'] == str(selected_date)) & (st.session_state.df['nombre'] == road_type)]
 
         if filtered_df.empty:
             st.warning("No data found for the selected date and road type.")
         else:
-            # Step 5: Generate the map
+            # Step 4: Generate the map
             m = folium.Map(location=[40.4168, -3.7038], zoom_start=6, tiles='CartoDB Positron')
 
             for _, road in filtered_df.iterrows():
@@ -86,23 +89,23 @@ if uploaded_file is not None:
                 ).add_to(m)
 
             # Save map to session state
-            st.session_state["map_object"] = m
+            st.session_state.map_object = m
 
             # Save map HTML to session state for persistence
             html_data = BytesIO()
             m.save(html_data, close_file=False)
-            st.session_state["html_data"] = html_data
-            st.session_state["map_generated"] = True
+            st.session_state.html_data = html_data
+            st.session_state.map_generated = True
 
     # Check if the map was generated before and persist it
-    if st.session_state["map_generated"] and st.session_state["map_object"] is not None:
+    if st.session_state.map_generated and st.session_state.map_object is not None:
         # Display the map stored in session state
-        st_folium(st.session_state["map_object"], width=700, height=500)
+        st_folium(st.session_state.map_object, width=700, height=500)
 
         # Allow the user to download the map after it is generated
         st.download_button(
             label="Download Density Heatmap as HTML",
-            data=st.session_state["html_data"].getvalue(),
+            data=st.session_state.html_data.getvalue(),
             file_name=f"traffic_map_{selected_date}_{road_type}.html",
             mime='text/html'
         )
