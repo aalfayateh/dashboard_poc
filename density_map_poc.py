@@ -58,6 +58,7 @@ if uploaded_file is not None:
     if "map_generated" not in st.session_state:
         st.session_state["map_generated"] = False
         st.session_state["html_data"] = None
+        st.session_state["map_object"] = None  # Store map object here
 
     # Only generate the map when both a date and road type are selected and the button is clicked
     if st.button("Generate Map"):
@@ -84,8 +85,8 @@ if uploaded_file is not None:
                     weight=5
                 ).add_to(m)
 
-            # Step 6: Display the map in the app and save it to session state
-            st_data = st_folium(m, width=700, height=500)
+            # Save map to session state
+            st.session_state["map_object"] = m
 
             # Save map HTML to session state for persistence
             html_data = BytesIO()
@@ -94,8 +95,9 @@ if uploaded_file is not None:
             st.session_state["map_generated"] = True
 
     # Check if the map was generated before and persist it
-    if st.session_state["map_generated"]:
-        st_folium(m, width=700, height=500)  # Show the map
+    if st.session_state["map_generated"] and st.session_state["map_object"] is not None:
+        # Display the map stored in session state
+        st_folium(st.session_state["map_object"], width=700, height=500)
 
         # Allow the user to download the map after it is generated
         st.download_button(
