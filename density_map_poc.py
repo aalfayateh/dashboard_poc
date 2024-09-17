@@ -54,7 +54,12 @@ if uploaded_file is not None:
     selected_date = st.date_input("Select date", min_value=min_date, max_value=max_date)
     road_type = st.selectbox("Select road type", road_types)
 
-    # Only generate the map when both a date and road type are selected
+    # Ensure that session state is used to persist the map generation state
+    if "map_generated" not in st.session_state:
+        st.session_state["map_generated"] = False
+        st.session_state["html_data"] = None
+
+    # Only generate the map when both a date and road type are selected and the button is clicked
     if st.button("Generate Map"):
         # Step 4: Filter data based on selection
         filtered_df = df[(df['fecha'] == str(selected_date)) & (df['nombre'] == road_type)]
@@ -79,16 +84,23 @@ if uploaded_file is not None:
                     weight=5
                 ).add_to(m)
 
-            # Step 6: Display the map in the app
-            st_folium(m, width=700, height=500)
+            # Step 6: Display the map in the app and save it to session state
+            st_data = st_folium(m, width=700, height=500)
 
-            # Step 7: Export the map to HTML and allow downloading
+            # Save map HTML to session state for persistence
             html_data = BytesIO()
             m.save(html_data, close_file=False)
+            st.session_state["html_data"] = html_data
+            st.session_state["map_generated"] = True
 
-            st.download_button(
-                label="Download Density Heatmap as HTML",
-                data=html_data.getvalue(),
-                file_name=f"traffic_map_{selected_date}_{road_type}.html",
-                mime='text/html'
-            )
+    # Check if the map was generated before and persist it
+    if st.session_state["map_generated"]:
+        st_folium(m, width=700, height=500)  # Show the map
+
+        # Allow the user to download the map after it is generated
+        st.download_button(
+            label="Download Density Heatmap as HTML",
+            data=st.session_state["html_data"].getvalue(),
+            file_name=f"traffic_map_{selected_date}_{road_type}.html",
+            mime='text/html'
+        )
