@@ -71,8 +71,6 @@ if 'selected_date' not in st.session_state:
     st.session_state.selected_date = None
 if 'road_type' not in st.session_state:
     st.session_state.road_type = None
-if 'button_clicked' not in st.session_state:
-    st.session_state.button_clicked = False
 
 # Step 1: Upload CSV file
 uploaded_file = st.file_uploader("Upload CSV file", type="csv")
@@ -80,9 +78,8 @@ uploaded_file = st.file_uploader("Upload CSV file", type="csv")
 if uploaded_file is not None:
     st.session_state.df = load_dataframe(uploaded_file)
     st.success(f"CSV file loaded with {len(st.session_state.df)} entries.")
-    st.session_state.button_clicked = False  # Reset button state when new file is uploaded
 
-# Only display widgets if data is loaded
+# Ensure the selection widgets are only displayed after a file is loaded
 if st.session_state.df is not None:
     # Step 2: Select date and road type
     min_date = pd.to_datetime(st.session_state.df['fecha'].min()).date()
@@ -91,7 +88,6 @@ if st.session_state.df is not None:
 
     st.write(f"Available dates: {min_date} to {max_date}")
 
-    # Step 3: Input widgets for selecting date and road type
     selected_date = st.date_input("Select date", min_value=min_date, max_value=max_date, key='date_input')
     road_type = st.selectbox("Select road type", road_types, key='road_select')
 
@@ -102,18 +98,14 @@ if st.session_state.df is not None:
     # Enable button only if both date and road type are selected
     generate_button_enabled = selected_date and road_type
     if st.button("Generate Map", disabled=not generate_button_enabled):
-        st.session_state.button_clicked = True
+        st.session_state.map_object, st.session_state.html_data = generate_map(
+            st.session_state.df,
+            st.session_state.selected_date,
+            st.session_state.road_type
+        )
+        st.session_state.map_generated = st.session_state.html_data is not None
 
-        # Generate the map only if the button is clicked
-        if st.session_state.button_clicked:
-            st.session_state.map_object, st.session_state.html_data = generate_map(
-                st.session_state.df,
-                st.session_state.selected_date,
-                st.session_state.road_type
-            )
-            st.session_state.map_generated = st.session_state.html_data is not None
-
-# Display the map if it was generated
+# Check if the map was generated before and persist it
 if st.session_state.map_generated and st.session_state.map_object is not None:
     # Display the map stored in session state
     st_folium(st.session_state.map_object, width=700, height=500)
