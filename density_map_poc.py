@@ -71,6 +71,8 @@ if 'selected_date' not in st.session_state:
     st.session_state.selected_date = None
 if 'road_type' not in st.session_state:
     st.session_state.road_type = None
+if 'button_clicked' not in st.session_state:
+    st.session_state.button_clicked = False
 
 # Step 1: Upload CSV file
 uploaded_file = st.file_uploader("Upload CSV file", type="csv")
@@ -95,9 +97,10 @@ if st.session_state.df is not None:
     st.session_state.selected_date = selected_date
     st.session_state.road_type = road_type
 
-    # Enable button only if both date and road type are selected
+    # Only enable the button if both date and road type are selected
     generate_button_enabled = selected_date and road_type
     if st.button("Generate Map", disabled=not generate_button_enabled):
+        st.session_state.button_clicked = True
         st.session_state.map_object, st.session_state.html_data = generate_map(
             st.session_state.df,
             st.session_state.selected_date,
@@ -105,8 +108,8 @@ if st.session_state.df is not None:
         )
         st.session_state.map_generated = st.session_state.html_data is not None
 
-# Check if the map was generated before and persist it
-if st.session_state.map_generated and st.session_state.map_object is not None:
+# Check if the map was generated and button was clicked
+if st.session_state.map_generated and st.session_state.map_object is not None and st.session_state.button_clicked:
     # Display the map stored in session state
     st_folium(st.session_state.map_object, width=700, height=500)
 
