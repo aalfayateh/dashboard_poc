@@ -35,7 +35,7 @@ def get_color(vehicle_count):
         return 'red'
 
 # Streamlit app
-st.title("Traffic Map Generator")
+st.title("Density Traffic Map Generator")
 
 # Step 1: Upload CSV file
 uploaded_file = st.file_uploader("Upload CSV file", type="csv")
@@ -86,7 +86,7 @@ if uploaded_file is not None:
         m.save(html_data, close_file=False)
 
         st.download_button(
-            label="Download Map as HTML",
+            label="Download Density Heatmap as HTML",
             data=html_data.getvalue(),
             file_name=f"traffic_map_{selected_date}_{road_type}.html",
             mime='text/html'
