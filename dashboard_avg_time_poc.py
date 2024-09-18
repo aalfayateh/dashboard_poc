@@ -111,7 +111,7 @@ def update_plot(selected_date, pkm1, pkm2, sentido):
 
 # Streamlit app main function
 def main():
-    st.title("Traffic Time Difference Analysis")
+    st.title("Traffic Average Time and PKMs Analysis")
 
     # File upload section
     uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
@@ -144,7 +144,7 @@ def main():
                 pio.write_html(fig, buf)
                 html_bytes = buf.getvalue().encode()
 
-                file_name = f"Traffic_Time_Difference_{selected_date}_{pkm1}_{pkm2}.html"
+                file_name = f"Traffic_Time_Avg_{selected_date}_{pkm1}_{pkm2}.html"
                 st.download_button(
                     label="Download Plot as HTML",
                     data=html_bytes,
