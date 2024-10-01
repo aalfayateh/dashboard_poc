@@ -264,7 +264,7 @@ with col2:
     fecha_fin = st.date_input("End date")
     hora_fin = st.number_input("End hour (0-23)", min_value=0, max_value=23, value=23)
 
-precision = st.selectbox("Precisión", options=['High', 'Medium', 'Low'])
+precision = st.selectbox("Precision", options=['High', 'Medium', 'Low'])
 
 # Botón para generar mapa
 if st.button("Generar Mapa", key="generar_mapa"):
