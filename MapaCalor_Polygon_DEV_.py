@@ -64,9 +64,9 @@ def cargar_poligono(archivo_poligono, radio_circulo_grados=0.01):
             circle = point.buffer(radio_circulo_grados)
             return circle
         else:
-            raise ValueError("Tipo de geometría no soportado")
+            raise ValueError("Geometry type not supported")
     except KeyError as e:
-        raise ValueError(f"Error al cargar el polígono: {e}")
+        raise ValueError(f"Error loading polygon: {e}")
 
 
 
@@ -74,7 +74,7 @@ def cargar_poligono(archivo_poligono, radio_circulo_grados=0.01):
 def validar_json_eventos(datos_eventos):
     try:
         pd.DataFrame(datos_eventos['rows'])  # Convertir a DataFrame para validar
-        return "Eventos cargados con éxito"
+        return "Events loaded"
     except Exception as e:
         return f"✘ Error: {e}"
 
@@ -91,9 +91,9 @@ def validar_json_poligono(datos_poligono, radio_circulo_grados=0.01):
             point = Point(coordinates)
             circle = point.buffer(radio_circulo_grados)
             if not isinstance(circle, Polygon):
-                raise ValueError("Error al convertir el punto en un polígono circular")
+                raise ValueError("Error converting polygon into circular area")
         else:
-            raise ValueError("Tipo de geometría no soportado")
+            raise ValueError("Geometry type not supported")
         
         return "Polígono cargado con éxito"
     except Exception as e:
@@ -120,11 +120,11 @@ def agregar_leyenda(mapa, conteo_eventos, fecha_inicio, fecha_fin, hora_inicio, 
             <br>
             <div style="width: 100%; height: 20px; background: linear-gradient(to right, green, yellow, orange, red, darkred);"></div>
             <div style="display: flex; justify-content: space-between; width: 100%; font-size: 12px; margin-top: 5px;">
-                <div>Muy baja</div>
-                <div>Baja</div>
-                <div>Media</div>
-                <div>Alta</div>
-                <div>Muy Alta</div>
+                <div>Very Low</div>
+                <div>Low</div>
+                <div>Medium</div>
+                <div>High</div>
+                <div>Very High</div>
             </div>
             <br>
             <b>Total de Eventos</b>
@@ -168,9 +168,9 @@ def generar_mapa_con_capas(data, fecha_inicio, fecha_fin, hora_inicio, hora_fin,
 
     # Asignar valores de precisión
     precision_values = {
-        'Baja': (15, 15),
-        'Media': (10, 10),
-        'Alta': (3, 3)
+        'Low': (15, 15),
+        'Medium': (10, 10),
+        'High': (3, 3)
     }
     
     radius, blur = precision_values.get(precision, (10, 10))  # Valor por defecto
@@ -208,7 +208,7 @@ def generar_mapa_con_capas(data, fecha_inicio, fecha_fin, hora_inicio, hora_fin,
                 ).add_to(capa_evento)
                 capa_evento.add_to(mapa)
     else:
-        print("No hay eventos disponibles para mostrar.")
+        print("No events to be shown.")
 
     # Agregar el control de capas al mapa para selección dinámica
     folium.LayerControl().add_to(mapa)
@@ -228,8 +228,8 @@ def generar_mapa_con_capas(data, fecha_inicio, fecha_fin, hora_inicio, hora_fin,
 st.title("Events Density Maps Application")
 
 # Carga de archivos
-uploaded_file_eventos = st.file_uploader("Sube tu archivo JSON de eventos", type=["json"])
-uploaded_file_poligono = st.file_uploader("Sube tu archivo JSON de polígono (opcional)", type=["geojson"])
+uploaded_file_eventos = st.file_uploader("Upload events JSON file", type=["json"])
+uploaded_file_poligono = st.file_uploader("Upload polygon JSON (optional)", type=["geojson"])
 
 # Inicializar las variables
 datos_eventos = None
@@ -241,7 +241,7 @@ if uploaded_file_eventos is not None:
         validacion_eventos = validar_json_eventos(datos_eventos)  # Validar eventos
         st.success(validacion_eventos)
     except Exception as e:
-        st.error(f"Error al cargar el archivo de eventos: {e}")
+        st.error(f"Error loading events file: {e}")
 
 if uploaded_file_poligono is not None:
     try:
@@ -251,20 +251,20 @@ if uploaded_file_poligono is not None:
         poligono = cargar_poligono(datos_poligono)  # Cargar el polígono
         print(poligono)
     except Exception as e:
-        st.error(f"Error al cargar el archivo de polígono: {e}")
+        st.error(f"Error loading polygon file: {e}")
 
 # Parámetros de configuración
 col1, col2 = st.columns(2)
 
 with col1:
-    fecha_inicio = st.date_input("Fecha de inicio")
-    hora_inicio = st.number_input("Hora de inicio (0-24)", min_value=0, max_value=23, value=0)
+    fecha_inicio = st.date_input("Start date")
+    hora_inicio = st.number_input("Start hour (0-24)", min_value=0, max_value=23, value=0)
 
 with col2:
-    fecha_fin = st.date_input("Fecha de fin")
-    hora_fin = st.number_input("Hora de fin (0-23)", min_value=0, max_value=23, value=23)
+    fecha_fin = st.date_input("End date")
+    hora_fin = st.number_input("End hour (0-23)", min_value=0, max_value=23, value=23)
 
-precision = st.selectbox("Precisión", options=['Alta', 'Media', 'Baja'])
+precision = st.selectbox("Precisión", options=['High', 'Medium', 'Low'])
 
 # Botón para generar mapa
 if st.button("Generar Mapa", key="generar_mapa"):
@@ -291,7 +291,7 @@ if st.button("Generar Mapa", key="generar_mapa"):
 # Mostrar el botón "Exportar Mapa" solo si el mapa ha sido generado
 if 'map_generated' in st.session_state and st.session_state['map_generated']:
     try:
-        if st.button("Exportar Mapa", key="exportar_mapa"):
+        if st.button("Export map", key="exportar_mapa"):
             # Exportar el mapa
             st.session_state['mapa'].save(st.session_state['archivo_salida'])
             exportar_mapa(st.session_state['mapa'], st.session_state['archivo_salida'])
@@ -314,7 +314,7 @@ if 'map_generated' in st.session_state and st.session_state['map_generated']:
 if 'map_generated' in st.session_state and st.session_state['map_generated']:
 
     try:
-        uploaded_file_dibujado = st.file_uploader("Sube tu archivo GeoJSON del polígono dibujado o un polígono GeoJson existente", type=["geojson"])
+        uploaded_file_dibujado = st.file_uploader("Upload GeoJSON polygon file or existed GeoJSON polygon file", type=["geojson"])
 
         if uploaded_file_dibujado is not None:
             
@@ -345,13 +345,13 @@ if 'map_generated' in st.session_state and st.session_state['map_generated']:
                     components.html(mapa._repr_html_(), height=800)  
 
                 # Botón para descargar el mapa
-                if st.button("Exportar Mapa", key="exportar_mapa_dibujado"):
+                if st.button("Export map", key="exportar_mapa_dibujado"):
                     # Exportar el mapa
                     mapa.save(archivo_salida)
                     exportar_mapa(mapa, archivo_salida)
 
                     with open(archivo_salida, "r") as f:
-                        st.download_button("Descargar Mapa", data=f, file_name=archivo_salida, mime="text/html")
+                        st.download_button("Download map", data=f, file_name=archivo_salida, mime="text/html")
 
     
                     # Resetear el estado del mapa generado después de descargar
@@ -360,7 +360,7 @@ if 'map_generated' in st.session_state and st.session_state['map_generated']:
             except Exception as e:
                 st.error(f"Error: {e}")
     except Exception as e:
-        st.error(f"Error general: {e}")
+        st.error(f"General error: {e}")
 
 
 
