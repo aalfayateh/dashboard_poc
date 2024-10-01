@@ -225,7 +225,7 @@ def generar_mapa_con_capas(data, fecha_inicio, fecha_fin, hora_inicio, hora_fin,
     return mapa, archivo_salida
 
 # Interfaz de Streamlit
-st.title("Aplicación de Mapa de Calor de Eventos")
+st.title("Events Density Maps Application")
 
 # Carga de archivos
 uploaded_file_eventos = st.file_uploader("Sube tu archivo JSON de eventos", type=["json"])
