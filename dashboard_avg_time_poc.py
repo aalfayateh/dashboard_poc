@@ -55,8 +55,8 @@ def calculate_average_time_diff(selected_date, pkm1, pkm2, sentido):
 
     # Interchange 20, 21, 22, 23 with 7, 8, 9, 10 using a temporary placeholder
     time_diffs['hour'] = time_diffs['hour'].replace({20: -1, 21: -2, 22: -3, 23: -4})
-    time_diffs['hour'] = time_diffs['hour'].replace({7: 20, 8: 21, 9: 22, 10: 23})
-    time_diffs['hour'] = time_diffs['hour'].replace({-1: 7, -2: 8, -3: 9, -4: 10})
+    time_diffs['hour'] = time_diffs['hour'].replace({8: 20, 9: 21, 10: 22, 11: 23})
+    time_diffs['hour'] = time_diffs['hour'].replace({-1: 8, -2: 9, -3: 10, -4: 11})
 
     # Sort the data by 'hour' to ensure proper plotting
     time_diffs = time_diffs.sort_values('hour').reset_index(drop=True)
