@@ -34,33 +34,27 @@ def load_file(uploaded_file):
 def calculate_average_time_diff(selected_date, pkm1, pkm2, sentido):
     selected_date = pd.to_datetime(selected_date).date()
 
-    # Filter data based on the selected date, PKMs, and sentido
+    # Ensure pkm1 is smaller than pkm2 for proper range filtering
+    pkm_min, pkm_max = min(pkm1, pkm2), max(pkm1, pkm2)
+
+    # Filter data based on the selected date, PKM range, and sentido
     day_data = df[
         (df['date'].dt.date == selected_date) &
-        (df['pkm'].isin([pkm1, pkm2])) &
+        (df['pkm'] >= pkm_min) & (df['pkm'] <= pkm_max) &
         (df['sentido'] == sentido)
     ]
 
     if day_data.empty:
         return pd.DataFrame(columns=['hour', 'average_time_diff']), 0
 
-    # Calculate the average time difference per hour for both PKMs
-    time_diffs = day_data.groupby(['hour', 'pkm']).agg({'avg_time_diff': 'mean'}).reset_index()
+    # Calculate the sum of avg_time_diff per hour for PKMs in the range
+    time_diffs = day_data.groupby('hour').agg({'avg_time_diff': 'sum'}).reset_index()
 
-    # Pivot table to get PKMs as columns
-    time_diffs_pivot = time_diffs.pivot_table(index='hour', columns='pkm', values='avg_time_diff')
+    # Calculate the overall average of the time differences (total sum / number of hours)
+    overall_avg_time_diff = time_diffs['avg_time_diff'].mean()
 
-    if pkm1 not in time_diffs_pivot.columns or pkm2 not in time_diffs_pivot.columns:
-        return pd.DataFrame(columns=['hour', 'average_time_diff']), 0
+    return time_diffs, overall_avg_time_diff
 
-    # Calculate the average time difference between the two PKMs for each hour
-    time_diffs_pivot['average_time_diff'] = (time_diffs_pivot[pkm1] + time_diffs_pivot[pkm2]) / 2
-    time_diff_df = time_diffs_pivot[['average_time_diff']].reset_index()
-
-    # Calculate the overall average time difference
-    overall_avg_time_diff = time_diff_df['average_time_diff'].mean()
-
-    return time_diff_df, overall_avg_time_diff
 
 def update_plot(selected_date, pkm1, pkm2, sentido):
     if df.empty:
