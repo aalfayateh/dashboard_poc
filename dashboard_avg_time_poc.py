@@ -45,7 +45,7 @@ def calculate_average_time_diff(selected_date, pkm1, pkm2, sentido):
     ]
 
     if day_data.empty:
-        return pd.DataFrame(columns=['hour', 'average_time_diff']), 0
+        return pd.DataFrame(columns=['hour', 'avg_time_diff']), 0
 
     # Calculate the sum of avg_time_diff per hour for PKMs in the range
     time_diffs = day_data.groupby('hour').agg({'avg_time_diff': 'sum'}).reset_index()
@@ -54,15 +54,17 @@ def calculate_average_time_diff(selected_date, pkm1, pkm2, sentido):
     time_diffs['hour'] = 23 - time_diffs['hour']
 
     # Interchange 20, 21, 22, 23 with 7, 8, 9, 10 using a temporary placeholder
-    time_diffs['hour'] = time_diffs['hour'].replace({20: -1, 21: -2, 22: -3, 23: -4}).reset_index()
-    time_diffs['hour'] = time_diffs['hour'].replace({7: 20, 8: 21, 9: 22, 10: 23}).reset_index()
-    time_diffs['hour'] = time_diffs['hour'].replace({-1: 7, -2: 8, -3: 9, -4: 10}).reset_index()
+    time_diffs['hour'] = time_diffs['hour'].replace({20: -1, 21: -2, 22: -3, 23: -4})
+    time_diffs['hour'] = time_diffs['hour'].replace({7: 20, 8: 21, 9: 22, 10: 23})
+    time_diffs['hour'] = time_diffs['hour'].replace({-1: 7, -2: 8, -3: 9, -4: 10})
+
+    # Sort the data by 'hour' to ensure proper plotting
+    time_diffs = time_diffs.sort_values('hour').reset_index(drop=True)
 
     # Calculate the overall average of the time differences (total sum / number of hours)
-    overall_avg_time_diff = time_diffs['avg_time_diff'].mean().reset_index()
+    overall_avg_time_diff = time_diffs['avg_time_diff'].mean()
 
     return time_diffs, overall_avg_time_diff
-
 
 
 
