@@ -50,6 +50,9 @@ def calculate_average_time_diff(selected_date, pkm1, pkm2, sentido):
     # Calculate the sum of avg_time_diff per hour for PKMs in the range
     time_diffs = day_data.groupby('hour').agg({'avg_time_diff': 'sum'}).reset_index()
 
+    # Invert the hour values: 0 becomes 23, 1 becomes 22, and so on
+    time_diffs['hour'] = 23 - time_diffs['hour']
+
     # Calculate the overall average of the time differences (total sum / number of hours)
     overall_avg_time_diff = time_diffs['avg_time_diff'].mean()
 
