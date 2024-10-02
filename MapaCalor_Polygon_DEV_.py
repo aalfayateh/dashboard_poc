@@ -1,3 +1,4 @@
+# Import libraries
 import pandas as pd
 import folium
 from folium.plugins import HeatMap, Draw
@@ -5,15 +6,16 @@ import json
 from branca.element import Template, MacroElement
 from shapely.geometry import Point, Polygon
 import streamlit as st
-import string
 import random
+import string
 from streamlit_folium import st_folium
 import streamlit.components.v1 as components
+import time
 
-# Variable global para almacenar las coordenadas del polígono
+# Global variable to store polygon coordinates
 coordenadas_poligono = None
 
-# Mapeo de TipoEvento a su descripción
+# Event types mapping
 eventos_traducidos = {
     5001: "Encendido",
     5002: "Apagado",
@@ -32,34 +34,26 @@ eventos_traducidos = {
     5020: "Impacto"
 }
 
-# Función para capturar coordenadas del polígono
-def capturar_coordenadas_poligono(geo_json):
-    global coordenadas_poligono
-    try:
-        data = json.loads(geo_json)
-        coordenadas_poligono = data['features'][0]['geometry']['coordinates']
-        st.success(f"Coordenadas del polígono capturadas: {coordenadas_poligono}")
-    except Exception as e:
-        st.error(f"Error al capturar las coordenadas: {e}")
+# Function to reset the app state automatically after download
+def reset_app_state():
+    st.session_state.clear()
 
+# Function to generate a random file name
 def generar_nombre_aleatorio(longitud=8):
     letras = string.ascii_letters + string.digits
     return ''.join(random.choice(letras) for _ in range(longitud))
 
-# Funciones de carga de datos
+# Function to load event data
 def cargar_datos(archivo_json):
-    return pd.DataFrame(archivo_json['rows'])  # Leer desde el JSON directamente
+    return pd.DataFrame(archivo_json['rows'])
 
+# Function to load polygon data
 def cargar_poligono(archivo_poligono, radio_circulo_grados=0.01):
     try:
-        # Extraer las coordenadas del primer feature
         coordinates = archivo_poligono['features'][0]['geometry']['coordinates']
-        
-        # Verificar si las coordenadas son de un polígono o un punto
         if archivo_poligono['features'][0]['geometry']['type'] == 'Polygon':
             return Polygon(coordinates[0])
         elif archivo_poligono['features'][0]['geometry']['type'] == 'Point':
-            # Convertir el punto en un polígono circular usando el radio proporcionado
             point = Point(coordinates)
             circle = point.buffer(radio_circulo_grados)
             return circle
@@ -68,46 +62,37 @@ def cargar_poligono(archivo_poligono, radio_circulo_grados=0.01):
     except KeyError as e:
         raise ValueError(f"Error al cargar el polígono: {e}")
 
-
-
-# Función para validar el archivo JSON de eventos
+# Function to validate event JSON
 def validar_json_eventos(datos_eventos):
     try:
-        pd.DataFrame(datos_eventos['rows'])  # Convertir a DataFrame para validar
+        pd.DataFrame(datos_eventos['rows'])
         return "Eventos cargados con éxito"
     except Exception as e:
         return f"✘ Error: {e}"
 
+# Function to validate polygon JSON
 def validar_json_poligono(datos_poligono, radio_circulo_grados=0.01):
     try:
-        # Extraer las coordenadas del primer feature
         coordinates = datos_poligono['features'][0]['geometry']['coordinates']
-        
-        # Verificar si las coordenadas son de un polígono o un punto
         if datos_poligono['features'][0]['geometry']['type'] == 'Polygon':
-            Polygon(coordinates[0])  # Validar el polígono
+            Polygon(coordinates[0])
         elif datos_poligono['features'][0]['geometry']['type'] == 'Point':
-            # Convertir el punto en un polígono circular para validación usando el radio proporcionado
             point = Point(coordinates)
             circle = point.buffer(radio_circulo_grados)
             if not isinstance(circle, Polygon):
                 raise ValueError("Error al convertir el punto en un polígono circular")
         else:
             raise ValueError("Tipo de geometría no soportado")
-        
         return "Polígono cargado con éxito"
     except Exception as e:
         return f"✘ Error: {e}"
 
-
-
-# Función para crear la leyenda 
+# Legend creation function
 def agregar_leyenda(mapa, conteo_eventos, fecha_inicio, fecha_fin, hora_inicio, hora_fin):
     info_fechas_horas = f'''
         <b>Rango de Fechas:</b> {fecha_inicio.strftime('%d.%m.%Y')} - {fecha_fin.strftime('%d.%m.%Y')}<br>
         <b>Rango de Horas:</b> {hora_inicio}:00 - {hora_fin}:00<br><br>
     '''
-    
     eventos_html = ''.join([f'<li>{descripcion}: {conteo}</li>' for descripcion, conteo in conteo_eventos.items() if conteo > 0])
     template = '''
     {% macro html(this, args) %}
@@ -139,236 +124,181 @@ def agregar_leyenda(mapa, conteo_eventos, fecha_inicio, fecha_fin, hora_inicio, 
     legend._template = Template(template)
     mapa.get_root().add_child(legend)
 
-# Función para exportar el mapa a un archivo HTML
+# Function to export the map
 def exportar_mapa(mapa, nombre_archivo):
     mapa.save(nombre_archivo)
 
-# Función para generar el mapa de calor - aqui se añaden las capas
-def generar_mapa_con_capas(data, fecha_inicio, fecha_fin, hora_inicio, hora_fin, precision, poligono=None):
+# Function to generate the heatmap with layers and progress bar
+def generar_mapa_con_progreso(data, fecha_inicio, fecha_fin, hora_inicio, hora_fin, precision, poligono=None):
+    progress_bar = st.progress(0)  # Initialize progress bar
+    try:
+        progress_bar.progress(10)  # Step 1: Loading initial data
 
-    # Filtrar los eventos por fecha y hora
-    data['Fecha'] = pd.to_datetime(data['Fecha'], unit='ms')
-    fecha_inicio = pd.to_datetime(fecha_inicio)
-    fecha_fin = pd.to_datetime(fecha_fin)
-    data = data[(data['Fecha'] >= fecha_inicio) & (data['Fecha'] <= fecha_fin)]
-    data = data[(data['Fecha'].dt.hour >= hora_inicio) & (data['Fecha'].dt.hour <= hora_fin)]
+        zoom_start = 0
+        data['Fecha'] = pd.to_datetime(data['Fecha'], unit='ms')
+        fecha_inicio = pd.to_datetime(fecha_inicio)
+        fecha_fin = pd.to_datetime(fecha_fin)
 
-    conteo_eventos = {}  # Inicializar conteo_eventos
+        data = data[(data['Fecha'] >= fecha_inicio) & (data['Fecha'] <= fecha_fin)]
+        data = data[(data['Fecha'].dt.hour >= hora_inicio) & (data['Fecha'].dt.hour <= hora_fin)]
+        progress_bar.progress(25)  # Step 2: Data filtered by date and time
 
-    # Filtrar los eventos por el polígono si se proporciona
-    if poligono is not None:
-        puntos = [Point(lon, lat) for lat, lon in zip(data['Latitud'], data['Longitud'])]
-        data = data[[poligono.contains(punto) for punto in puntos]]
+        conteo_eventos = {}
+        if poligono is not None:
+            puntos = [Point(lon, lat) for lat, lon in zip(data['Latitud'], data['Longitud'])]
+            data = data[[poligono.contains(punto) for punto in puntos]]
+        progress_bar.progress(50)  # Step 3: Filtered by polygon
 
-    # Crear un mapa centrado en Santa Cruz de Mudela o donde queramos - mas adelante, intentar que coja el centro los eventos
-    mapa = folium.Map(location=[38.2016424,-1.3441754], zoom_start=12)
+        if not data.empty:
+            centro_lat = data['Latitud'].mean()
+            centro_lon = data['Longitud'].mean()
+            zoom_start = 12
+        else:
+            centro_lat = 40.3453  # Default lat
+            centro_lon = -3.6604  # Default lon
+            zoom_start = 6
+        progress_bar.progress(60)  # Step 4: Map center calculated
 
-    # Inicializar la capa_evento
-    capa_evento = folium.FeatureGroup(name="Eventos")
+        mapa = folium.Map(location=[centro_lat, centro_lon], zoom_start=zoom_start)
+        capa_evento = folium.FeatureGroup(name="Eventos")
 
-    # Asignar valores de precisión
-    precision_values = {
-        'Baja': (15, 15),
-        'Media': (10, 10),
-        'Alta': (3, 3)
-    }
-    
-    radius, blur = precision_values.get(precision, (10, 10))  # Valor por defecto
+        precision_values = {
+            'Baja': (15, 15),
+            'Media': (10, 10),
+            'Alta': (3, 3)
+        }
+        radius, blur = precision_values.get(precision, (10, 10))
 
-    # Verificar si la columna 'TipoEvento' existe antes de filtrar
-    if 'TipoEvento' in data.columns and not data.empty:
-        # Filtrar los eventos que tienen traducción en nuestro diccionario
-        data = data[data['TipoEvento'].isin(eventos_traducidos.keys())]
+        if 'TipoEvento' in data.columns and not data.empty:
+            data = data[data['TipoEvento'].isin(eventos_traducidos.keys())]
+            gradient = {0: 'lightgreen', 0.25: 'yellow', 0.5: 'orange', 0.75: 'red', 1: 'darkred'}
+            max_densidad = data.shape[0]
 
-        # Crear un gradiente dinámico basado en los eventos seleccionados
-        gradient = {0: 'lightgreen', 0.25: 'yellow', 0.5: 'orange', 0.75: 'red', 1: 'darkred'}
+            for tipo_evento, descripcion in eventos_traducidos.items():
+                datos_filtrados = data[data['TipoEvento'] == tipo_evento]
+                conteo_eventos[descripcion] = len(datos_filtrados)
+                heat_data = [[row['Latitud'], row['Longitud'], 1] for _, row in datos_filtrados.iterrows()]
+                if heat_data:
+                    capa_evento = folium.FeatureGroup(name=descripcion)
+                    HeatMap(
+                        heat_data, 
+                        min_opacity=0.3, 
+                        radius=radius, 
+                        blur=blur, 
+                        gradient=gradient, 
+                        max_zoom=18,
+                        max_value=max_densidad
+                    ).add_to(capa_evento)
+                    capa_evento.add_to(mapa)
+        progress_bar.progress(85)  # Step 5: Added heatmap layers
 
-        # Calcular la densidad máxima de eventos para ajustar el gradiente
-        max_densidad = data.shape[0]
+        # Add draw tool and legend
+        folium.LayerControl().add_to(mapa)
+        draw = Draw(export=True)
+        draw.add_to(mapa)
+        agregar_leyenda(mapa, conteo_eventos, fecha_inicio, fecha_fin, hora_inicio, hora_fin)
+        progress_bar.progress(100)  # Step 6: Final touches
 
-        # Crear una capa para cada tipo de evento
-        for tipo_evento, descripcion in eventos_traducidos.items():
-            # Filtrar los datos por el tipo de evento
-            datos_filtrados = data[data['TipoEvento'] == tipo_evento]
-            conteo_eventos[descripcion] = len(datos_filtrados)
+        archivo_salida = f"Mapa_Calor_Polygon_{generar_nombre_aleatorio()}.html"
+        return mapa, archivo_salida, conteo_eventos
 
-            # Crear los datos para el mapa de calor de este tipo de evento
-            heat_data = [[row['Latitud'], row['Longitud'], 1] for _, row in datos_filtrados.iterrows()]
+    except Exception as e:
+        st.error(f"Error al generar el mapa: {e}")
+        return None, None, None
 
-            if heat_data:  # Solo añadir la capa si hay datos
-                capa_evento = folium.FeatureGroup(name=descripcion)
-                HeatMap(
-                    heat_data, 
-                    min_opacity=0.3, 
-                    radius=radius,  # Usar el valor del radio según la precisión seleccionada
-                    blur=blur,  # Usar el valor del blur según la precisión seleccionada
-                    gradient=gradient,  # Usar el gradiente dinámico
-                    max_zoom=18,
-                    max_value=max_densidad  # Ajustar el valor máximo al valor de densidad real
-                ).add_to(capa_evento)
-                capa_evento.add_to(mapa)
-    else:
-        print("No hay eventos disponibles para mostrar.")
 
-    # Agregar el control de capas al mapa para selección dinámica
-    folium.LayerControl().add_to(mapa)
-
-    # Agregar herramienta de dibujo
-    draw = Draw(export=True)
-    draw.add_to(mapa)
-
-    # Agregar leyenda
-    agregar_leyenda(mapa, conteo_eventos, fecha_inicio, fecha_fin, hora_inicio, hora_fin)
-
-    archivo_salida = f"C:\\Users\\dmurias\\Desktop\\Telefonica\\SCRIPTS3\\workspace\\Mapas de Calor\\ficheros\\Mapa_Calor_Polygon_{generar_nombre_aleatorio()}.html"
-    # Mostrar el mapa
-    return mapa, archivo_salida
-
-# Interfaz de Streamlit
+# Streamlit configuration
+st.set_page_config(layout="wide")
 st.title("Aplicación de Mapa de Calor de Eventos")
-
-# Carga de archivos
-uploaded_file_eventos = st.file_uploader("Sube tu archivo JSON de eventos", type=["json"])
-uploaded_file_poligono = st.file_uploader("Sube tu archivo JSON de polígono (opcional)", type=["geojson"])
-
-# Inicializar las variables
 datos_eventos = None
 poligono = None
 
-if uploaded_file_eventos is not None:
-    try:
-        datos_eventos = json.load(uploaded_file_eventos)  # Leer el JSON
-        validacion_eventos = validar_json_eventos(datos_eventos)  # Validar eventos
-        st.success(validacion_eventos)
-    except Exception as e:
-        st.error(f"Error al cargar el archivo de eventos: {e}")
+# Flag to check if the map was generated by clicking the button
+mapa_generado_con_boton = False
 
-if uploaded_file_poligono is not None:
-    try:
-        datos_poligono = json.load(uploaded_file_poligono)  # Leer el JSON
-        validacion_poligono = validar_json_poligono(datos_poligono)  # Validar polígono
-        st.success(validacion_poligono)
-        poligono = cargar_poligono(datos_poligono)  # Cargar el polígono
-        print(poligono)
-    except Exception as e:
-        st.error(f"Error al cargar el archivo de polígono: {e}")
+# Load event and polygon files before generating the map
+col1, col2 = st.columns(2)
 
-# Parámetros de configuración
+with col1:
+    uploaded_file_eventos = st.file_uploader("Sube tu archivo JSON de eventos", type=["json"], key="file_eventos")
+    if uploaded_file_eventos is not None:
+        try:
+            datos_eventos = json.load(uploaded_file_eventos)
+            validacion_eventos = validar_json_eventos(datos_eventos)
+            st.success(validacion_eventos)
+        except Exception as e:
+            st.error(f"Error al cargar el archivo de eventos: {e}")
+
+with col2:
+    uploaded_file_poligono = st.file_uploader("Sube tu archivo JSON de polígono (opcional)", type=["geojson"], key="file_poligono")
+    if uploaded_file_poligono is not None:
+        try:
+            datos_poligono = json.load(uploaded_file_poligono)
+            validacion_poligono = validar_json_poligono(datos_poligono)
+            st.success(validacion_poligono)
+            poligono = cargar_poligono(datos_poligono)
+        except Exception as e:
+            st.error(f"Error al cargar el archivo de polígono: {e}")
+
+# Configuration settings for date, time, and precision
 col1, col2 = st.columns(2)
 
 with col1:
     fecha_inicio = st.date_input("Fecha de inicio")
     hora_inicio = st.number_input("Hora de inicio (0-24)", min_value=0, max_value=23, value=0)
+    precision = st.selectbox("Precisión", options=['Alta', 'Media', 'Baja'])
 
 with col2:
     fecha_fin = st.date_input("Fecha de fin")
     hora_fin = st.number_input("Hora de fin (0-23)", min_value=0, max_value=23, value=23)
 
-precision = st.selectbox("Precisión", options=['Alta', 'Media', 'Baja'])
-
-# Botón para generar mapa
+# Generate map button
 if st.button("Generar Mapa", key="generar_mapa"):
     try:
         if datos_eventos is not None:
-            eventos_df = cargar_datos(datos_eventos)  # Cargar los datos en DataFrame
-            mapa, archivo_salida = generar_mapa_con_capas(eventos_df, fecha_inicio, fecha_fin, hora_inicio, hora_fin, precision, poligono)
+            eventos_df = cargar_datos(datos_eventos)
+            mapa, archivo_salida, conteo_eventos = generar_mapa_con_progreso(eventos_df, fecha_inicio, fecha_fin, hora_inicio, hora_fin, precision, poligono)
 
-            # Mostrar el mapa
+            # Show the map only the first time when generating, not after export
             map_container = st.empty()
-            with map_container:
-                components.html(mapa._repr_html_(), height=800)  
+            if not st.session_state.get('export_successful', False):  # Only show the map if it's not exported yet
+                with map_container:
+                    components.html(mapa._repr_html_(), height=800)
 
-            # Habilitar campo para cargar el polígono dibujado
+            # Store map and relevant data in session state
             st.session_state['map_generated'] = True
             st.session_state['mapa'] = mapa
             st.session_state['archivo_salida'] = archivo_salida
+            st.session_state['conteo_eventos'] = conteo_eventos
         else:
             st.error("Por favor, sube un archivo JSON de eventos válido.")
-
     except Exception as e:
-                st.error(f"Error: {e}")
+        st.error(f"Error: {e}")
 
-# Mostrar el botón "Exportar Mapa" solo si el mapa ha sido generado
+# Check if the export button should be enabled based on the presence of events in the map
+exportar_button_enabled = False
+if 'conteo_eventos' in st.session_state and any(st.session_state['conteo_eventos'].values()):
+    exportar_button_enabled = True
+
+# Show the export map button if the map is generated and contains events
 if 'map_generated' in st.session_state and st.session_state['map_generated']:
-    try:
+    if exportar_button_enabled:
         if st.button("Exportar Mapa", key="exportar_mapa"):
-            # Exportar el mapa
-            st.session_state['mapa'].save(st.session_state['archivo_salida'])
-            exportar_mapa(st.session_state['mapa'], st.session_state['archivo_salida'])
+            with st.spinner("Exportando mapa..."):
+                st.session_state['mapa'].save(st.session_state['archivo_salida'])
+                exportar_mapa(st.session_state['mapa'], st.session_state['archivo_salida'])
 
-            with open(st.session_state['archivo_salida'], "r") as f:
-                st.download_button("Descargar Mapa", data=f, file_name=st.session_state['archivo_salida'], mime="text/html")
+                with open(st.session_state['archivo_salida'], "r") as f:
+                    st.download_button("Descargar Mapa", data=f, file_name=st.session_state['archivo_salida'], mime="text/html")
 
-            # Mantener el mapa cargado después de exportar
-            map_container = st.empty()
-            with map_container:
-                components.html(st.session_state['mapa']._repr_html_(), height=800)
+                # Disable the export button and show success message
+                st.success("Export generado con éxito. Puedes descargar el mapa.")
+                st.session_state['map_generated'] = False
+                st.session_state['export_successful'] = True
+    else:
+        st.button("Exportar Mapa", key="exportar_mapa", disabled=True, help="No hay eventos que exportar en el mapa")
 
-            # Resetear el estado del mapa generado después de descargar
-            st.session_state['map_generated'] = False
-
-    except Exception as e:
-                st.error(f"Error: {e}")
-
-# Campo para cargar el polígono dibujado
-if 'map_generated' in st.session_state and st.session_state['map_generated']:
-
-    try:
-        uploaded_file_dibujado = st.file_uploader("Sube tu archivo GeoJSON del polígono dibujado o un polígono GeoJson existente", type=["geojson"])
-
-        if uploaded_file_dibujado is not None:
-            
-            try:
-                eventos_df = cargar_datos(datos_eventos)  # Cargar los datos en DataFrame
-                geojson_data = json.load(uploaded_file_dibujado)  # Leer el GeoJSON
-                capturar_coordenadas_poligono(json.dumps(geojson_data))  # Capturar coordenadas
-
-                # Verificar si el GeoJSON es de tipo "Point"
-                if geojson_data['features'][0]['geometry']['type'] == 'Point':
-                    # Solicitar al usuario que ingrese el radio del círculo en metros
-                    radio_circulo_metros = st.number_input("Ingresa el radio del círculo (en metros)", min_value=0.0, value=1000.0)
-                    # Convertir el radio de metros a grados (aproximadamente)
-                    radio_circulo_grados = radio_circulo_metros / 111320  # 1 grado ≈ 111.32 km
-
-                    # Cargar el polígono dibujado con el radio proporcionado
-                    poligono_dibujado = cargar_poligono(geojson_data, radio_circulo_grados)  # Pasar el radio a la función
-                else:
-                    # Cargar el polígono dibujado sin necesidad de radio
-                    poligono_dibujado = cargar_poligono(geojson_data)
-
-                # Generar el mapa con el polígono dibujado
-                mapa, archivo_salida = generar_mapa_con_capas(eventos_df, fecha_inicio, fecha_fin, hora_inicio, hora_fin, precision, poligono_dibujado)
-
-                # Mostrar el mapa
-                map_container = st.empty()
-                with map_container:
-                    components.html(mapa._repr_html_(), height=800)  
-
-                # Botón para descargar el mapa
-                if st.button("Exportar Mapa", key="exportar_mapa_dibujado"):
-                    # Exportar el mapa
-                    mapa.save(archivo_salida)
-                    exportar_mapa(mapa, archivo_salida)
-
-                    with open(archivo_salida, "r") as f:
-                        st.download_button("Descargar Mapa", data=f, file_name=archivo_salida, mime="text/html")
-
-    
-                    # Resetear el estado del mapa generado después de descargar
-                    st.session_state['map_generated'] = False
-
-            except Exception as e:
-                st.error(f"Error: {e}")
-    except Exception as e:
-        st.error(f"Error general: {e}")
-
-
-
-
-
-
-
-
-
-
-
+# Automatically reset app state after downloading the map
+if 'export_successful' in st.session_state and st.session_state['export_successful']:
+    time.sleep(2)  # Delay to allow user to see success message before reset
+    reset_app_state()
