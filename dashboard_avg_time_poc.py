@@ -73,7 +73,7 @@ def update_plot(selected_date, pkm1, pkm2, sentido):
     # Line plot for average time difference
     fig.add_trace(go.Scatter(
         x=time_diff_df['hour'],
-        y=time_diff_df['average_time_diff'],
+        y=time_diff_df['avg_time_diff'],
         mode='lines+markers',
         name='Avg Time Difference',
         line=dict(color='lightgreen', width=2),
@@ -97,7 +97,7 @@ def update_plot(selected_date, pkm1, pkm2, sentido):
         xaxis_title='Hour',
         yaxis_title='Avg Time (mins)',
         xaxis=dict(tickmode='linear', dtick=1, range=[-0.5, 23.5]),
-        yaxis=dict(range=[0, max(time_diff_df['average_time_diff'].max(), overall_avg_time_diff) + 2]),
+        yaxis=dict(range=[0, max(time_diff_df['avg_time_diff'].max(), overall_avg_time_diff) + 2]),
         template='plotly_white'
     )
 
