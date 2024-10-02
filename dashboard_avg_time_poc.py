@@ -53,14 +53,16 @@ def calculate_average_time_diff(selected_date, pkm1, pkm2, sentido):
     # Invert the hour values: 0 becomes 23, 1 becomes 22, and so on
     time_diffs['hour'] = 23 - time_diffs['hour']
 
-    # Interchange 20, 21, 22, 23 with 7, 8, 9, 10
-    hour_mapping = {20: 7, 21: 8, 22: 9, 23: 10}
-    time_diffs['hour'] = time_diffs['hour'].replace(hour_mapping)
+    # Interchange 20, 21, 22, 23 with 7, 8, 9, 10 using a temporary placeholder
+    time_diffs['hour'] = time_diffs['hour'].replace({20: -1, 21: -2, 22: -3, 23: -4})
+    time_diffs['hour'] = time_diffs['hour'].replace({7: 20, 8: 21, 9: 22, 10: 23})
+    time_diffs['hour'] = time_diffs['hour'].replace({-1: 7, -2: 8, -3: 9, -4: 10})
 
     # Calculate the overall average of the time differences (total sum / number of hours)
     overall_avg_time_diff = time_diffs['avg_time_diff'].mean()
 
     return time_diffs, overall_avg_time_diff
+
 
 
 
