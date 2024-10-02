@@ -161,7 +161,7 @@ def generar_mapa_con_capas(data, fecha_inicio, fecha_fin, hora_inicio, hora_fin,
         data = data[[poligono.contains(punto) for punto in puntos]]
 
     # Crear un mapa centrado en Santa Cruz de Mudela o donde queramos - mas adelante, intentar que coja el centro los eventos
-    mapa = folium.Map(location=[40.4168, -3.7038])
+    mapa = folium.Map(location=[40.4168, -3.7038], zoom_start=6)
 
     # Inicializar la capa_evento
     capa_evento = folium.FeatureGroup(name="Eventos")
